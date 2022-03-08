@@ -1,4 +1,11 @@
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+
 public class Seller {
+    Lock lock = new ReentrantLock(true);
+    Condition condition = lock.newCondition();
+
     private AutoShow autoShow;
     final int timeoutCar = 3000;
     final int timeoutSell = 1000;
@@ -7,28 +14,34 @@ public class Seller {
         this.autoShow = autoShow;
     }
 
-    public synchronized void receiveCar() {
+    public void receiveCar() {
         try {
+            lock.lock();
             Thread.sleep(timeoutCar);
             System.out.println("Производитель Toyota выпустил 1 авто");
             autoShow.getCars().add(new Car());
-            notify();
+            condition.signalAll();
         } catch (InterruptedException e) {
             e.printStackTrace();
+        } finally {
+            lock.unlock();
         }
     }
 
-    public synchronized Car sellCar() {
+    public Car sellCar() {
         try {
+            lock.lock();
             System.out.println(Thread.currentThread().getName() + " зашел в автосалон");
-            Thread.sleep(timeoutSell);
             while (autoShow.getCars().size() == 0) {
                 System.out.println("Автомобилей нет в наличии");
-                wait();
+                condition.await();
             }
+            Thread.sleep(timeoutSell);
             System.out.println(Thread.currentThread().getName() + " уехал на новеньком авто ");
         } catch (InterruptedException e) {
             e.printStackTrace();
+        } finally {
+            lock.unlock();
         }
         return autoShow.getCars().remove(0);
     }
